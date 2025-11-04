@@ -1,5 +1,7 @@
 # Reaction Finder
 
+[![CI](https://github.com/Dai1678/slack_reaction_finder/actions/workflows/ci.yml/badge.svg)](https://github.com/Dai1678/slack_reaction_finder/actions/workflows/ci.yml)
+
 Slackワークスペース内で特定の絵文字リアクションが多く付けられている投稿を検索・抽出するCLIツールです。
 
 ## 特徴

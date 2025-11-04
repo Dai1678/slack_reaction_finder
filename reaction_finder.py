@@ -111,27 +111,38 @@ def build_date_query(args) -> str:
     elif args.after or args.before:
         after_date = None
         before_date = None
-        
+
+        # 日付のパース
         if args.after:
             try:
                 after_date = datetime.strptime(args.after, DATE_FORMAT)
-                date_query += f"after:{args.after} "
             except ValueError:
                 raise ValueError("--after の日付形式が正しくありません（YYYY-MM-DD）")
         if args.before:
             try:
                 before_date = datetime.strptime(args.before, DATE_FORMAT)
-                date_query += f"before:{args.before}"
             except ValueError:
                 raise ValueError("--before の日付形式が正しくありません（YYYY-MM-DD）")
-        
+
         # 日付の妥当性チェック
-        if after_date and before_date and after_date > before_date:
-            raise ValueError(
-                f"日付の指定が不正です: "
-                f"--after ({args.after}) が --before ({args.before}) より後になっています。"
-                f"\n正しい順序で指定してください（例: --after 2025-02-01 --before 2025-10-31）"
-            )
+        if after_date and before_date:
+            if after_date == before_date:
+                # 同じ日付が指定された場合は、その日のみを検索
+                date_query = f"on:{args.after}"
+            elif after_date > before_date:
+                raise ValueError(
+                    f"日付の指定が不正です: "
+                    f"--after ({args.after}) が --before ({args.before}) より後になっています。"
+                    f"\n正しい順序で指定してください（例: --after 2025-02-01 --before 2025-10-31）"
+                )
+            else:
+                date_query = f"after:{args.after} before:{args.before}"
+        else:
+            # どちらか一方のみ指定された場合
+            if args.after:
+                date_query += f"after:{args.after} "
+            if args.before:
+                date_query += f"before:{args.before}"
     
     return date_query.strip()
 

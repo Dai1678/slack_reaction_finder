@@ -91,6 +91,37 @@ class TestParseArguments(unittest.TestCase):
                 args = parse_arguments()
                 self.assertEqual(args.token, 'env-token')
 
+    def test_on_with_after_conflict(self):
+        """Test that --on with --after raises error"""
+        test_args = ['test_script', 'pray', '--on', '2024-06-15', '--after', '2024-01-01']
+        with patch.object(sys, 'argv', test_args):
+            with self.assertRaises(SystemExit):
+                parse_arguments()
+
+    def test_on_with_before_conflict(self):
+        """Test that --on with --before raises error"""
+        test_args = ['test_script', 'pray', '--on', '2024-06-15', '--before', '2024-12-31']
+        with patch.object(sys, 'argv', test_args):
+            with self.assertRaises(SystemExit):
+                parse_arguments()
+
+    def test_on_with_days_conflict(self):
+        """Test that --on with --days raises error"""
+        test_args = ['test_script', 'pray', '--on', '2024-06-15', '--days', '30']
+        with patch.object(sys, 'argv', test_args):
+            with self.assertRaises(SystemExit):
+                parse_arguments()
+
+    def test_on_alone(self):
+        """Test that --on can be used alone"""
+        test_args = ['test_script', 'pray', '--on', '2024-06-15']
+        with patch.object(sys, 'argv', test_args):
+            args = parse_arguments()
+            self.assertEqual(args.on, '2024-06-15')
+            self.assertIsNone(args.after)
+            self.assertIsNone(args.before)
+            self.assertIsNone(args.days)
+
 
 class TestValidateToken(unittest.TestCase):
     """Test case 2: validate_token exits when no token is provided"""
@@ -128,25 +159,25 @@ class TestBuildDateQuery(unittest.TestCase):
     
     def test_no_date_arguments(self):
         """Test empty query when no date arguments provided"""
-        args = argparse.Namespace(after=None, before=None, days=None)
+        args = argparse.Namespace(after=None, before=None, days=None, on=None)
         query = build_date_query(args)
         self.assertEqual(query, '')
-    
+
     def test_after_only(self):
         """Test query with only --after"""
-        args = argparse.Namespace(after='2024-01-01', before=None, days=None)
+        args = argparse.Namespace(after='2024-01-01', before=None, days=None, on=None)
         query = build_date_query(args)
         self.assertEqual(query, 'after:2024-01-01')
-    
+
     def test_before_only(self):
         """Test query with only --before"""
-        args = argparse.Namespace(after=None, before='2024-12-31', days=None)
+        args = argparse.Namespace(after=None, before='2024-12-31', days=None, on=None)
         query = build_date_query(args)
         self.assertEqual(query, 'before:2024-12-31')
-    
+
     def test_after_and_before(self):
         """Test query with both --after and --before"""
-        args = argparse.Namespace(after='2024-01-01', before='2024-12-31', days=None)
+        args = argparse.Namespace(after='2024-01-01', before='2024-12-31', days=None, on=None)
         query = build_date_query(args)
         self.assertEqual(query, 'after:2024-01-01 before:2024-12-31')
     
@@ -156,63 +187,76 @@ class TestBuildDateQuery(unittest.TestCase):
         mock_now = datetime(2024, 2, 15, 12, 0, 0)
         mock_datetime.now.return_value = mock_now
         mock_datetime.strptime = datetime.strptime
-        
-        args = argparse.Namespace(after=None, before=None, days=30)
+
+        args = argparse.Namespace(after=None, before=None, days=30, on=None)
         query = build_date_query(args)
-        
+
         expected_date = (mock_now - timedelta(days=30)).strftime(DATE_FORMAT)
         self.assertEqual(query, f'after:{expected_date}')
-    
+
     def test_days_with_before(self):
         """Test query with --days and --before (calculates backwards from before date)"""
-        args = argparse.Namespace(after=None, before='2024-12-31', days=90)
+        args = argparse.Namespace(after=None, before='2024-12-31', days=90, on=None)
         query = build_date_query(args)
-        
+
         end_date = datetime.strptime('2024-12-31', DATE_FORMAT)
         start_date = (end_date - timedelta(days=90)).strftime(DATE_FORMAT)
         self.assertEqual(query, f'after:{start_date} before:2024-12-31')
-    
+
     def test_invalid_after_date_format(self):
         """Test that invalid --after date format raises ValueError"""
-        args = argparse.Namespace(after='2024/01/01', before=None, days=None)
+        args = argparse.Namespace(after='2024/01/01', before=None, days=None, on=None)
         with self.assertRaises(ValueError) as cm:
             build_date_query(args)
         self.assertIn('after', str(cm.exception).lower())
-    
+
     def test_invalid_before_date_format(self):
         """Test that invalid --before date format raises ValueError"""
-        args = argparse.Namespace(after=None, before='12-31-2024', days=None)
+        args = argparse.Namespace(after=None, before='12-31-2024', days=None, on=None)
         with self.assertRaises(ValueError) as cm:
             build_date_query(args)
         self.assertIn('before', str(cm.exception).lower())
-    
+
     def test_invalid_before_date_format_with_days(self):
         """Test that invalid --before date format with --days raises ValueError"""
-        args = argparse.Namespace(after=None, before='invalid-date', days=30)
+        args = argparse.Namespace(after=None, before='invalid-date', days=30, on=None)
         with self.assertRaises(ValueError) as cm:
             build_date_query(args)
         self.assertIn('before', str(cm.exception).lower())
-    
+
     def test_after_greater_than_before(self):
         """Test that --after > --before raises ValueError"""
-        args = argparse.Namespace(after='2024-12-31', before='2024-01-01', days=None)
+        args = argparse.Namespace(after='2024-12-31', before='2024-01-01', days=None, on=None)
         with self.assertRaises(ValueError) as cm:
             build_date_query(args)
         self.assertIn('不正', str(cm.exception))
         self.assertIn('2024-12-31', str(cm.exception))
         self.assertIn('2024-01-01', str(cm.exception))
-    
+
     def test_valid_date_range(self):
         """Test that valid date range (after < before) works correctly"""
-        args = argparse.Namespace(after='2024-01-01', before='2024-12-31', days=None)
+        args = argparse.Namespace(after='2024-01-01', before='2024-12-31', days=None, on=None)
         query = build_date_query(args)
         self.assertEqual(query, 'after:2024-01-01 before:2024-12-31')
 
     def test_same_date_for_after_and_before(self):
         """Test that same date for --after and --before uses 'on:' operator"""
-        args = argparse.Namespace(after='2024-06-15', before='2024-06-15', days=None)
+        args = argparse.Namespace(after='2024-06-15', before='2024-06-15', days=None, on=None)
         query = build_date_query(args)
         self.assertEqual(query, 'on:2024-06-15')
+
+    def test_on_option(self):
+        """Test --on option generates correct query"""
+        args = argparse.Namespace(after=None, before=None, days=None, on='2024-06-15')
+        query = build_date_query(args)
+        self.assertEqual(query, 'on:2024-06-15')
+
+    def test_on_option_invalid_format(self):
+        """Test that invalid --on date format raises ValueError"""
+        args = argparse.Namespace(after=None, before=None, days=None, on='2024/06/15')
+        with self.assertRaises(ValueError) as cm:
+            build_date_query(args)
+        self.assertIn('on', str(cm.exception).lower())
 
 
 class TestFetchMessageDetails(unittest.TestCase):

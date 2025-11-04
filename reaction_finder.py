@@ -23,6 +23,7 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog='''
 日付指定の例:
+  --on 2024-06-15                 2024年6月15日のみ
   --after 2024-01-01              2024年1月1日以降
   --before 2024-12-31             2024年12月31日以前
   --after 2024-01-01 --before 2024-03-31  2024年1-3月
@@ -50,6 +51,10 @@ def parse_arguments():
         help=f'Slack Bot Token（デフォルト: 環境変数{ENV_TOKEN_NAME}）'
     )
     parser.add_argument(
+        '--on',
+        help='この日付の投稿を検索（形式: YYYY-MM-DD）'
+    )
+    parser.add_argument(
         '--after',
         help='この日付以降の投稿を検索（形式: YYYY-MM-DD）'
     )
@@ -70,13 +75,17 @@ def parse_arguments():
     )
     
     args = parser.parse_args()
-    
+
     # 検索件数の妥当性チェック
     if args.max < 1:
         parser.error("--max は1以上の値を指定してください")
     if args.max > 1000:
         print("警告: --max が1000を超えています。大量の検索は時間がかかる可能性があります。")
-    
+
+    # 日付オプションの競合チェック
+    if args.on and (args.after or args.before or args.days):
+        parser.error("--on は --after, --before, --days と同時に使用できません")
+
     return args
 
 
@@ -95,7 +104,15 @@ def validate_token(token: Optional[str]) -> None:
 def build_date_query(args) -> str:
     """日付範囲のクエリを構築"""
     date_query = ""
-    
+
+    # --onオプションが指定された場合
+    if args.on:
+        try:
+            datetime.strptime(args.on, DATE_FORMAT)
+            return f"on:{args.on}"
+        except ValueError:
+            raise ValueError("--on の日付形式が正しくありません（YYYY-MM-DD）")
+
     if args.days:
         if args.before:
             try:

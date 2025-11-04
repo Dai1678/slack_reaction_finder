@@ -57,6 +57,7 @@ pip3 install -r requirements.txt
 - `groups:history` - プライベートチャンネルの履歴を読む
 - `groups:read` - プライベートチャンネル情報を読む
 - `im:history` - DMの履歴を読む
+- `mpim:history` - マルチチャンネルの履歴を読む
 - `reactions:read` - リアクション情報を読む
 - `search:read` - ワークスペース内を検索
 - `users:read` - ユーザー情報を読む
